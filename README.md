@@ -8,7 +8,7 @@ The goal of this project is to:
 - Explore correlations between screen time, stress, sleep, and lifestyle
 - Create clear and reproducible visualizations
 - Evaluate sample distributions and identify any data issues
-- Prepare high-quality plots suitable for a data science portfolio
+- Prepare high-quality plots 
 
 ## Tools & Technologies
 
@@ -24,21 +24,28 @@ The goal of this project is to:
 Shows median ages per gender
 Observations:
 Male median age ≈ 33
+
 Female median age ≈ 35
+
 Other ≈ 27 (sample too small → category removed for analysis)
 
 ## Histograms (Screen Time, Stress, Sleep)
 Explanation of shape, symmetry, peaks, outliers
+
 Interpretation
 
 ## Line Plot: Exercise × Days Offline
 Mean trend line
+
 Point-wise visualization
 
 ## Correlation Heatmap (Python → R equivalent)
 Sleep ↔ Stress
+
 Screen time ↔ Sleep
+
 Screen time ↔ Stress
+
 Annotated heatmap with correlation coefficients\
 
 ## Summary of Insights
