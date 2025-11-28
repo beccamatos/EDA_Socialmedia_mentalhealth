@@ -1,0 +1,462 @@
+---
+title: 'Data evaluation for project: my_project'
+author: "Rebecca Matos"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  html_document:
+    code_folding: hide
+    df_print: paged
+    fig_caption: yes
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+# Makeup {.unnumbered}
+
+```{r knitr options, include=F}
+
+knitr::opts_chunk$set(message = F, error = F, warning = F, comment = NA, tidy = T, fig.align = 'center', out.width = '100%')
+
+```
+
+```{r load libraries, include=F}
+
+library(readr)
+library(knitr)
+library(ggplot2)
+library(DT)
+library(htmltools)
+library(data.table)
+library(stringr) 
+library(dplyr)
+library(skimr)
+library(ggcorrplot)
+
+
+```
+
+
+```{r half violin function}
+data_summary <- function(x) {
+   m <- mean(x)
+   ymin <- m-sd(x)
+   ymax <- m+sd(x)
+   return(c(y=m,ymin=ymin,ymax=ymax))
+}
+
+GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin, 
+                           draw_group = function(self, data, ..., draw_quantiles = NULL) {
+  data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
+  grp <- data[1, "group"]
+  newdata <- plyr::arrange(transform(data, x = if (grp %% 2 == 1) xminv else xmaxv), if (grp %% 2 == 1) y else -y)
+  newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
+  newdata[c(1, nrow(newdata) - 1, nrow(newdata)), "x"] <- round(newdata[1, "x"])
+
+  if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
+    stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <=
+      1))
+    quantiles <- ggplot2:::create_quantile_segment_frame(data, draw_quantiles)
+    aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
+    aesthetics$alpha <- rep(1, nrow(quantiles))
+    both <- cbind(quantiles, aesthetics)
+    quantile_grob <- GeomPath$draw_panel(both, ...)
+    ggplot2:::ggname("geom_split_violin", grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
+  }
+  else {
+    ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
+  }
+})
+
+geom_split_violin <- function(mapping = NULL, data = NULL, stat = "ydensity", position = "identity", ..., 
+                              draw_quantiles = NULL, trim = TRUE, scale = "area", na.rm = FALSE, 
+                              show.legend = NA, inherit.aes = TRUE) {
+  layer(data = data, mapping = mapping, stat = stat, geom = GeomSplitViolin, 
+        position = position, show.legend = show.legend, inherit.aes = inherit.aes, 
+        params = list(trim = trim, scale = scale, draw_quantiles = draw_quantiles, na.rm = na.rm, ...))
+}
+
+
+```
+
+
+
+```{r options, include=F}
+
+options(scipen = 999)
+
+```
+
+```{r makeup}
+
+userfolder = datafolder = getwd()
+project = "my_project"
+cat(paste0("All data will be stored in ", datafolder))
+
+datafolder = str_replace(userfolder,"R_User", "R_Data")
+cat(paste0("All data will be stored in: \n", datafolder, "\n"))
+project = str_split(userfolder,"/")[[1]][length(str_split(userfolder,"/")[[1]])]
+exportfile = list.files(datafolder, pattern = "export")
+cat(paste0("The following data sets are available in folder ", datafolder, ": \n"))
+exportfile
+
+```
+
+------------------------------------------------------------------------
+
+# Load the dataset
+
+```{r}
+
+Mental_Health_and_Social_Media_Balance_Dataset <- read_csv("Mental_Health_and_Social_Media_Balance_Dataset.csv")
+
+
+if (file.exists("Mental_Health_and_Social_Media_Balance_Dataset.csv")) {
+  print(paste("File loaded!"))
+} else {
+  print("File not found.")
+}
+  
+
+
+```
+
+# EDA
+
+## General information
+
+```{r}
+print(paste("This dataset has", nrow(Mental_Health_and_Social_Media_Balance_Dataset), "observations."))
+```
+
+We can also take a look at the types of variables and values
+
+```{r}
+glimpse(Mental_Health_and_Social_Media_Balance_Dataset)
+```
+And a quick statistic overview
+
+```{r}
+summary(Mental_Health_and_Social_Media_Balance_Dataset)
+
+skim(Mental_Health_and_Social_Media_Balance_Dataset)
+```
+
+
+An exploratory data analysis (EDA) with scatterplot matrix gives a broad exploratory overview of the variables in the dataset, allowing quick detection of potential relationships, patterns, and anomalies.
+
+## General matrix plot
+
+```{r}
+
+plot(Mental_Health_and_Social_Media_Balance_Dataset)
+  
+```
+
+The are already some patterns emerging:
+
+**Correlation between daily screen time and sleep quality**
+
+-   **negatively related**: as screen time increases, sleep quality seems to decrease.
+
+
+**Correlation between stress level and sleep quality**
+
+-   **negatively related**: higher stress generally seems to correspond to worse sleep.
+
+**Correlation between daily screen time and stress level**
+
+-  **positively related**: more hours on screen seems to correspond to higher stress scores.
+
+Deeper analysis is worth doing to investigate these trends.
+
+## Age, sex and number of observations
+
+```{r}
+
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset, aes( x = Age, y = Gender, fill = Gender)) +
+    geom_boxplot(fill = "lightblue", alpha = 0.6, outlier.color = "red") +
+    geom_jitter(width = 0.2, alpha = 0.5, color = "darkblue") +
+    stat_summary(fun = median, geom = "text",
+               aes(label = after_stat(x)),
+               vjust = -2.1, size = 7, color = "black") +
+    labs(
+      title = "Age distribution subseted by gender",
+      x = "Age",
+      y = "Gender",
+      caption = "Font: Mental health & social media balance dataset"
+    ) +
+    theme_void()+
+    theme_minimal(base_size = 14)+
+    theme(legend.position = "none") 
+
+
+```
+
+**Sample size**: The dataset presents a similar number of observations for the male and female categories, which supports reliable comparisons between these two groups. However, the Other category has substantially fewer observations compared to male and female. This small n reduces statistical power by increasing the uncertainty in estimates.
+
+**Outliers**: No outliers was detected. 
+
+**Median**: It slightly differ between genders. Male and female groups have close central tendency values, while the Other group shows a noticeably lower median — but this should be interpreted cautiously due to the small sample size.
+
+**Decision for further analysis**
+Given the limited representation of the Other category, it is statistically appropriate to exclude this group from subsequent analyses to avoid biased results or conclusions based on insufficient data.
+
+[![Anatomy of boxplot](images/1435-01.png)](https://leansigmacorporation.com/box-plot-with-minitab/)
+
+```{r}
+
+setDT(Mental_Health_and_Social_Media_Balance_Dataset)
+
+gender_count <- Mental_Health_and_Social_Media_Balance_Dataset[ , .N, by = Gender]
+
+print(paste(
+  "Sample size observations:",
+  "Male and Female categories have similar sample sizes (Male =", 
+      gender_count[Gender == 'Male', N], 
+      ", Female =", gender_count[Gender == 'Female', N], ").",
+  "The 'Other' category has very few observations (n =", 
+      gender_count[Gender == 'Other', N], "), which limits statistical reliability.",
+  "No outliers detected in the age distribution.",
+  "Median ages: Male = 33, Female = 35, Other = 27.",
+  "Because 'Other' has smaller sample size (around 200 observations less), the conclusions obtained night be biased, so it will be excluded from further analysis."
+))
+```
+
+### Exclude Gender Others 
+
+```{r}
+Mental_Health_and_Social_Media_Balance_Dataset_sub <- Mental_Health_and_Social_Media_Balance_Dataset[!(Gender == "Other")]
+
+
+plot(Mental_Health_and_Social_Media_Balance_Dataset_sub)
+```
+
+## Age, sex, social media platform 
+
+```{r}
+
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset_sub, aes( x = Age, y = Social_Media_Platform, fill = Gender)) +
+    geom_boxplot(alpha = 0.6) +
+    geom_jitter(width = 0.2, alpha = 0.5, color = "darkblue") +
+    labs(
+      title = "Age distribution subseted by gender",
+      x = "Age",
+      y = "Gender",
+      caption = "Font: Mental Health & Social Media Balance Dataset"
+    ) +
+    theme_void()+
+    theme_minimal(base_size = 14)
+
+```
+
+## Daily screen time distribution 
+
+```{r}
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset_sub, aes(x = `Daily_Screen_Time(hrs)`)) +
+  geom_histogram(aes(y = ..density..),
+                 bins = 30,
+                 alpha = 0.6,
+                 color = "white") +
+  geom_density(linewidth = 1.2) +
+  labs(
+    title = "Daily_Screen_Time(hrs)",
+    x = "Daily_Screen_Time(hrs)",
+    y = "Density"
+  ) +
+  theme_minimal(base_size = 14)
+
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset_sub, aes(x = `Daily_Screen_Time(hrs)`)) +
+  geom_histogram(aes(y = ..density..),
+                 bins = 30,
+                 alpha = 0.6,
+                 color = "white") +
+  geom_density(linewidth = 1.2) +
+  labs(
+    title = "Daily_Screen_Time(hrs)",
+    x = "Daily_Screen_Time(hrs)",
+    y = "Density"
+  ) +
+  facet_wrap(vars(Gender))
+  theme_minimal(base_size = 14)
+  
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset_sub, aes(x = `Daily_Screen_Time(hrs)`)) +
+  geom_histogram(aes(y = ..density..),
+                 bins = 30,
+                 alpha = 0.6,
+                 color = "white") +
+  geom_density(linewidth = 1.2) +
+  labs(
+    title = "Daily screen time (hrs)",
+    x = "Daily_Screen_Time(hrs)",
+    y = "Density"
+  ) +
+  facet_wrap(vars(Social_Media_Platform))
+  theme_minimal(base_size = 14)
+```
+
+The distribution looks symmetrical, bell-shaped, with center around 6 h of daily screen time. The spread is wide between 0 and 15, indicating high variability.
+
+```{r}
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset, aes( x = `Daily_Screen_Time(hrs)`, y = as.factor(`Happiness_Index(1-10)`), fill = Gender)) +
+    geom_boxplot( alpha = 0.6) +
+    geom_jitter(width = 0.2, alpha = 0.5, color = "darkblue") +
+    labs(
+      x = "Daily screen time (hrs)",
+      y = "Happiness index (1-10)",
+      caption = "Font: Mental health & social media balance dataset"
+    ) +
+    theme_void()+
+    theme_minimal(base_size = 14)+
+    theme() 
+
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset, aes( x = `Daily_Screen_Time(hrs)`, y = as.factor(`Happiness_Index(1-10)`), fill = Social_Media_Platform)) +
+    geom_boxplot( alpha = 0.6) +
+    geom_jitter(width = 0.2, alpha = 0.5, color = "darkblue") +
+    labs(
+      x = "Daily screen time (hrs)",
+      y = "Happiness index (1-10)",
+      caption = "Font: Mental health & social media balance dataset"
+    ) +
+    theme_void()+
+    theme_minimal(base_size = 14)+
+    theme() 
+
+
+```
+
+
+As screen time increases, happiness decreases. The trend remains regardless the gender and the social platform.
+
+
+
+
+```{r}
+
+summary_df <- Mental_Health_and_Social_Media_Balance_Dataset_sub %>%
+  group_by(`Exercise_Frequency(week)`) %>%
+  summarise(
+    mean_days = mean(Days_Without_Social_Media, na.rm = TRUE),
+    sd_days = sd(Days_Without_Social_Media, na.rm = TRUE)
+  )
+
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset_sub,
+       aes(x = `Exercise_Frequency(week)`, y = Days_Without_Social_Media)) +
+  stat_summary(fun = mean, geom = "line", color = "skyblue", linewidth = 1) +
+  stat_summary(fun = mean, geom = "point", color = "skyblue", size = 3) +
+  labs(
+    title = "Average Days Without Social Media by Weekly Exercise",
+    x = "Exercise Frequency (week)",
+    y = "Days Without Social Media"
+  ) +
+  theme_minimal(base_size = 14)
+
+
+```
+There is no clear relationship between weekly exercise and days spent without social media. However, lets subset by gender:
+
+## 
+
+```{r}
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset_sub[Gender == "Female"],
+       aes(x = `Exercise_Frequency(week)`, y = Days_Without_Social_Media)) +
+  stat_summary(fun = mean, geom = "line", color = "skyblue", linewidth = 1) +
+  stat_summary(fun = mean, geom = "point", color = "skyblue", size = 3) +
+  labs(
+    title = "Average Days Without Social Media by Weekly Exercise",
+    x = "Exercise Frequency (week)",
+    y = "Days Without Social Media"
+  ) +
+  theme_minimal(base_size = 14)
+
+Mental_Health_and_Social_Media_Balance_Dataset_sub[Gender == "Female" & `Exercise_Frequency(week)` == 0]
+Mental_Health_and_Social_Media_Balance_Dataset_sub[Gender == "Male" & `Exercise_Frequency(week)` == 1]
+Mental_Health_and_Social_Media_Balance_Dataset_sub[Gender == "Male" & `Exercise_Frequency(week)` == 6]
+
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset_sub[Gender == "Male"],
+       aes(x = `Exercise_Frequency(week)`, y = Days_Without_Social_Media)) +
+  stat_summary(fun = mean, geom = "line", color = "skyblue", linewidth = 1) +
+  stat_summary(fun = mean, geom = "point", color = "skyblue", size = 3) +
+  labs(
+    title = "Average Days Without Social Media by Weekly Exercise",
+    x = "Exercise Frequency (week)",
+    y = "Days Without Social Media"
+  ) +
+  theme_minimal(base_size = 14)
+
+Mental_Health_and_Social_Media_Balance_Dataset_sub[Gender == "Male" & `Exercise_Frequency(week)` == 4]
+Mental_Health_and_Social_Media_Balance_Dataset_sub[Gender == "Male" & `Exercise_Frequency(week)` == 5]
+Mental_Health_and_Social_Media_Balance_Dataset_sub[Gender == "Male" & `Exercise_Frequency(week)` == 6] # biased since it has only one observation
+```
+
+For females, overall, the exercise frequency increase with days without social media, while for males, the exercise frequency doesnt change with days without social media. 
+
+
+```{r}
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset_sub, aes( x = `Sleep_Quality(1-10)`, y = as.factor(`Stress_Level(1-10)`), fill = Gender)) +
+    geom_boxplot( alpha = 0.6) +
+    geom_jitter(width = 0.2, alpha = 0.5, color = "darkblue") +
+    labs(
+      x = "Daily screen time (hrs)",
+      y = "Happiness index (1-10)",
+      caption = "Font: Mental health & social media balance dataset"
+    ) +
+    theme_void()+
+    theme_minimal(base_size = 14)+
+    theme() 
+
+ggplot(Mental_Health_and_Social_Media_Balance_Dataset_sub, aes( x = `Sleep_Quality(1-10)`, y = as.factor(`Stress_Level(1-10)`), fill = Social_Media_Platform)) +
+    geom_boxplot( alpha = 0.6) +
+    geom_jitter(width = 0.2, alpha = 0.5, color = "darkblue") +
+    labs(
+      x = "Daily screen time (hrs)",
+      y = "Happiness index (1-10)",
+      caption = "Font: Mental health & social media balance dataset"
+    ) +
+    theme_void()+
+    theme_minimal(base_size = 14)+
+    theme() 
+
+
+```
+
+```{r}
+
+
+
+
+# Select the columns
+cols <- c("Daily_Screen_Time(hrs)", "Sleep_Quality(1-10)", "Stress_Level(1-10)")
+
+# Compute correlation matrix
+corr <- cor(Mental_Health_and_Social_Media_Balance_Dataset_sub[, ..cols], use = "complete.obs")
+
+# Plot
+ggcorrplot(
+  corr,
+  hc.order = FALSE,
+  type = "lower",
+  lab = TRUE,
+  lab_size = 5,
+  colors = c("#003c30", "#01665e", "#c7eae5"),  # similar to "crest"
+  outline.color = "white"
+) +
+  ggtitle("Correlation Heatmap: Screen Time, Sleep & Stress") +
+  theme(plot.title = element_text(size = 14, face = "bold"))
+
+```
+
+Thr correlation heatmap shows that screen time positively correlated with stress level.
+
+# Wrap-up
+
+## Session info
+
+```{r session info}
+
+# print session info
+sessionInfo()
+
+```
