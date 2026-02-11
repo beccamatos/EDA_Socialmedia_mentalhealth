@@ -10,7 +10,7 @@ The goal of this project is to:
 - Evaluate sample distributions and identify any data issues
 - Prepare high-quality plots 
 
-## Tools & Technologies
+## Tools 
 
 - R
 - tidyverse
