@@ -56,21 +56,23 @@ Annotated heatmap with correlation coefficients\
 
 # Getting Started
 
-Follow these steps to set up and run the full Ratio pipeline.
+Follow these steps to set up and run the full pipeline.
 
 1) Project Setup
 
 Clone the repository and enter the project directory:
-
+```
 git clone https://github.com/beccamatos/EDA_Socialmedia_mentalhealth.git
 cd EDA_Socialmedia_mentalhealth
-
+```
 Place required CSV inputs in input/:
 
+```
 input/Mental_Health_and_Social_Media_Balance_Dataset.csv (required)
-
+```
 2) Manual Execution
 
 Run the script:
-
+```
 Rscript "script/EDA_socialmedia_mentalhealth.Rmd"
+```
