@@ -60,12 +60,16 @@ Follow these steps to set up and run the full pipeline.
 
 1) Project Setup
 
-Clone the repository and enter the project directory:
+1.1 - Clone the repository and enter the project directory:
 ```
 git clone https://github.com/beccamatos/EDA_Socialmedia_mentalhealth.git
 cd EDA_Socialmedia_mentalhealth
 ```
-Place required CSV inputs in input/:
+1.2 - Make directory
+```
+mkdir -p input
+```
+1.3 - Place required CSV inputs in input/:
 
 ```
 input/Mental_Health_and_Social_Media_Balance_Dataset.csv (required)
