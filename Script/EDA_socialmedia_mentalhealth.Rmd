@@ -1,10 +1,9 @@
 ---
-title: 'Data evaluation for project: my_project'
+title: 'Data evaluation for project: EDA social media and mental health'
 author: "Rebecca Matos"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
-    code_folding: hide
     df_print: paged
     fig_caption: yes
     number_sections: yes
@@ -19,11 +18,12 @@ output:
 ```{r knitr options, include=F}
 
 knitr::opts_chunk$set(message = F, error = F, warning = F, comment = NA, tidy = T, fig.align = 'center', out.width = '100%')
+knitr::opts_chunk$set(echo = TRUE)
 
 ```
 
-```{r load libraries, include=F}
-
+```{r load libraries}
+library(here)
 library(readr)
 library(knitr)
 library(ggplot2)
@@ -39,50 +39,6 @@ library(ggcorrplot)
 ```
 
 
-```{r half violin function}
-data_summary <- function(x) {
-   m <- mean(x)
-   ymin <- m-sd(x)
-   ymax <- m+sd(x)
-   return(c(y=m,ymin=ymin,ymax=ymax))
-}
-
-GeomSplitViolin <- ggproto("GeomSplitViolin", GeomViolin, 
-                           draw_group = function(self, data, ..., draw_quantiles = NULL) {
-  data <- transform(data, xminv = x - violinwidth * (x - xmin), xmaxv = x + violinwidth * (xmax - x))
-  grp <- data[1, "group"]
-  newdata <- plyr::arrange(transform(data, x = if (grp %% 2 == 1) xminv else xmaxv), if (grp %% 2 == 1) y else -y)
-  newdata <- rbind(newdata[1, ], newdata, newdata[nrow(newdata), ], newdata[1, ])
-  newdata[c(1, nrow(newdata) - 1, nrow(newdata)), "x"] <- round(newdata[1, "x"])
-
-  if (length(draw_quantiles) > 0 & !scales::zero_range(range(data$y))) {
-    stopifnot(all(draw_quantiles >= 0), all(draw_quantiles <=
-      1))
-    quantiles <- ggplot2:::create_quantile_segment_frame(data, draw_quantiles)
-    aesthetics <- data[rep(1, nrow(quantiles)), setdiff(names(data), c("x", "y")), drop = FALSE]
-    aesthetics$alpha <- rep(1, nrow(quantiles))
-    both <- cbind(quantiles, aesthetics)
-    quantile_grob <- GeomPath$draw_panel(both, ...)
-    ggplot2:::ggname("geom_split_violin", grid::grobTree(GeomPolygon$draw_panel(newdata, ...), quantile_grob))
-  }
-  else {
-    ggplot2:::ggname("geom_split_violin", GeomPolygon$draw_panel(newdata, ...))
-  }
-})
-
-geom_split_violin <- function(mapping = NULL, data = NULL, stat = "ydensity", position = "identity", ..., 
-                              draw_quantiles = NULL, trim = TRUE, scale = "area", na.rm = FALSE, 
-                              show.legend = NA, inherit.aes = TRUE) {
-  layer(data = data, mapping = mapping, stat = stat, geom = GeomSplitViolin, 
-        position = position, show.legend = show.legend, inherit.aes = inherit.aes, 
-        params = list(trim = trim, scale = scale, draw_quantiles = draw_quantiles, na.rm = na.rm, ...))
-}
-
-
-```
-
-
-
 ```{r options, include=F}
 
 options(scipen = 999)
@@ -93,14 +49,11 @@ options(scipen = 999)
 
 userfolder = datafolder = getwd()
 project = "my_project"
-cat(paste0("All data will be stored in ", datafolder))
+cat(paste0("All data will be stored in ", datafolder, "\n"))
 
 datafolder = str_replace(userfolder,"R_User", "R_Data")
-cat(paste0("All data will be stored in: \n", datafolder, "\n"))
 project = str_split(userfolder,"/")[[1]][length(str_split(userfolder,"/")[[1]])]
-exportfile = list.files(datafolder, pattern = "export")
-cat(paste0("The following data sets are available in folder ", datafolder, ": \n"))
-exportfile
+
 
 ```
 
@@ -110,16 +63,7 @@ exportfile
 
 ```{r}
 
-Mental_Health_and_Social_Media_Balance_Dataset <- read_csv("Mental_Health_and_Social_Media_Balance_Dataset.csv")
-
-
-if (file.exists("Mental_Health_and_Social_Media_Balance_Dataset.csv")) {
-  print(paste("File loaded!"))
-} else {
-  print("File not found.")
-}
-  
-
+Mental_Health_and_Social_Media_Balance_Dataset <- read_csv(here("Mental_Health_and_Social_Media_Balance_Dataset.csv"))
 
 ```
 
@@ -204,7 +148,6 @@ ggplot(Mental_Health_and_Social_Media_Balance_Dataset, aes( x = Age, y = Gender,
 **Decision for further analysis**
 Given the limited representation of the Other category, it is statistically appropriate to exclude this group from subsequent analyses to avoid biased results or conclusions based on insufficient data.
 
-[![Anatomy of boxplot](images/1435-01.png)](https://leansigmacorporation.com/box-plot-with-minitab/)
 
 ```{r}
 
@@ -448,7 +391,7 @@ ggcorrplot(
 
 ```
 
-Thr correlation heatmap shows that screen time positively correlated with stress level.
+The correlation heatmap shows that screen time positively correlated with stress level. In other words, Increase in one indicates increase in the other. This does not imply cause and consequence relationship, just positive correlation.
 
 # Wrap-up
 
